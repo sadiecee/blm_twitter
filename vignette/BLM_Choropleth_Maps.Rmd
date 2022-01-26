@@ -1,0 +1,983 @@
+---
+title: "Black Lives Matter Data and Visualizations"
+subtitle: "Choropleth and Density Maps" 
+author: "Sadie and Valeria"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+There is no denying that 2020 was an eventful year. From the COVID-19 pandemic, to the revival of the Black Lives Matter (BLM) movement and the Presidential election between Joe Biden and Donald Trump, the people of the United States were consistently on edge. While the whole world was stuck at home, mis-information ran wild across the internet and conspiracy theories made their way into the mainstream. The violent rhetoric coming from the White House empowered far right individuals and groups to comit arguably the worst act of domestic terrorism since the country's inception in what we now know as the January 6th Capitol Insurrection. 
+
+Academics and journalists alike have studied and reported on the significant role that social media played in this context. However, little attention has been put toward the spatial dimension of the use of social media surrounding it. This project aims to close that gap by exploring the spatial distribution of hashtag use in Tweets made across the United States during the peak of the BLM movement in the summer of 2020. 
+
+We choose to look at Black Lives Matter because of it's rise to prominence as a social movement, following the murder of George Floyd. We tracked the following three hashtags on key dates of the summer of 2020 (May 26th - 31st) and spring of 2021 (March 8th and 28th): #blacklivesmatter, #blm, #icantbreathe. 
+
+The obective of this part of the project was to understand the spatial distribution of people actively tweeting about Black Lives Matter during it's peak online. To this end, we used the Twitter location data of the users and not the Tweets themselves to create Choropleth maps of the number of Tweets sent by state as well as Kernel Density Maps based on those tweets that did contain latitude and longitude. 
+
+#### Timeline of Important Dates for BLM 
+```{r echo=FALSE, fig.align='center'}
+library(scales)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(knitr)
+library(timevis)
+library(extrafont)
+
+#remotes::install_version("Rttf2pt1", version = "1.3.8")
+#install.packages("extrafonts")
+#font_import(path = "C:/Users/vchavez/AppData/Local/Microsoft/Windows/Fonts")
+#y
+
+windowsFonts(Georgia=windowsFont("TT Georgia"))
+
+BLM_timeline <- data.frame(
+  Year = c(rep(c(2020), times = 7)),
+  Months = c(5, 5, 5, 5, 5, 5, 6),
+  Days = c(25, 26, 27, 28, 29, 31, 1),
+  Milestones = c("05/25\nGeorge Floyd's\nDeath",
+                 "05/26\nProtests in\nMinneapolis",
+                 "05/27\nProtests in Los Angeles,\nMemphis, Chicago",
+                 "05/28\nNational Guard\nMobilized in MN",
+                 "05/29\nArrest of Derek Chauvin\nProtests in New York and Atlanta",
+                 "05/31\nProtests in Philadelphia,\nAtlanta, Minneapolis",
+                 ""),
+  Event_type = c("George Floyd's Death",
+                 "Protests in Minneapolis",
+                 "Protests in Los Angeles, Memphis, Chicago",
+                 "MN National Guard Mobilized",
+                 "Arrest of Derek Chauvin\nProtests in New York and Atlanta",
+                 "Protests in Philadelphia, Atlanta, Minneapolis",
+                 ""))
+
+BLM_timeline$date <- with(BLM_timeline, ymd(sprintf('%04d%02d%02d', BLM_timeline$Year, BLM_timeline$Months, BLM_timeline$Days)))
+# of note, the ymd() function transforms dates stored in character and numeric vectors to Date
+## we are using the code with(df, ymd(sprintf('%04d%02d%02d', year, mon, day))) to take those three columns and merge them into one that is recognized as a date in R
+
+BLM_timeline <- BLM_timeline[with(BLM_timeline, order(date)), ]
+# of note, an alternate code to arrange the df in ascending date order would have been:
+## Merkel <- Merkel %>% arrange(date)
+
+Event_type_levels <- c("George Floyd's Death",
+                       "Protests in Minneapolis",
+                       "Protests in Los Angeles, Memphis, Chicago",
+                       "MN National Guard Mobilized",
+                       "Arrest of Derek Chauvin\nProtests in New York and Atlanta",
+                       "Protests in Philadelphia, Atlanta, Minneapolis",
+                       "")
+
+Event_type_colors <- c("#D24043", "#EF6937", "#4AAA92", "#5B1A18", "#F6B443", "#006C00", "000000")
+BLM_timeline$Event_type <- factor(BLM_timeline$Event_type, levels= Event_type_levels, ordered=TRUE)
+
+positions <- c(0.2, -0.2, 0.4, -0.4, 0.2, -0.2, 0)
+
+directions <- c(1, -1)
+
+line_pos <- data.frame(
+  "date"=unique(BLM_timeline$date),
+  "position"=rep(positions, length.out=length(unique(BLM_timeline$date))),
+  "direction"=rep(directions, length.out=length(unique(BLM_timeline$date))))
+
+BLM_timeline <- merge(x=BLM_timeline, y=line_pos, by="date", all = TRUE)
+
+month_buffer <- 0
+
+month_date_range <- seq(min(BLM_timeline$date), min(BLM_timeline$date) + months(month_buffer), by='month')
+
+month_format <- format(month_date_range, '%b')
+month_df <- data.frame(month_date_range, month_format)
+
+#year_date_range <- seq(min(Election_Timeline$date) - months(month_buffer), max(Election_Timeline$date) + months(month_buffer), by='year')
+
+# We will only show the years for which we have a december to january transition.
+#year_date_range <- as.Date(
+#intersect(
+# ceiling_date(year_date_range, unit="year"),
+#floor_date(year_date_range, unit="year")),
+#origin = "2020-01-01")
+
+# We want the format to be in the four digit format for years.
+#year_format <- format(year_date_range, '%Y')
+#year_df <- data.frame(year_date_range, year_format)
+
+timeline_plot<-ggplot(BLM_timeline,aes(x=date,y= position, col=Event_type, label=BLM_timeline$Milestones))
+
+timeline_plot<-timeline_plot+labs(col="Milestones")
+
+timeline_plot<-timeline_plot+scale_color_manual(values=Event_type_colors, labels=Event_type_levels, drop = FALSE)
+
+timeline_plot<-timeline_plot+theme_classic()
+
+timeline_plot<-timeline_plot+geom_hline(yintercept=0,
+                                        color = "black", size=0.3)
+
+timeline_plot<-timeline_plot+geom_segment(data = BLM_timeline, aes(y = BLM_timeline$position, yend = 0, xend = BLM_timeline$date), color='black', size=0.2)
+
+timeline_plot<-timeline_plot+geom_point(data = BLM_timeline, aes(y = BLM_timeline$position), size=2)
+
+timeline_plot<-timeline_plot+theme(axis.line.y=element_blank(),
+                                   axis.text.y=element_blank(),
+                                   axis.title.x=element_blank(),
+                                   axis.title.y=element_blank(),
+                                   axis.ticks.y=element_blank(),
+                                   axis.text.x =element_blank(),
+                                   axis.ticks.x =element_blank(),
+                                   axis.line.x =element_blank(),
+                                   legend.position = "",
+                                   text = element_text(family = "Georgia")
+)
+
+timeline_plot <- timeline_plot + geom_text(data = month_df, aes(x = month_date_range, y = -0.09, label = month_format, family = "Georgia", fontface = "bold"), size = 3, vjust = 0.5, color = "black", angle=90)
+
+#timeline_plot<-timeline_plot+geom_text(data=year_df, aes(x=year_date_range,y=-0.25,label=year_format, fontface="bold"),size=3.5, color='black')
+
+text_offset <- 0.07
+
+absolute_value <- (abs(BLM_timeline$position))
+text_position <- absolute_value + text_offset
+
+BLM_timeline$text_position <- text_position * BLM_timeline$direction
+
+timeline_plot<-timeline_plot+geom_text(aes(y=BLM_timeline$text_position,label = BLM_timeline$Milestones),size=3, family="Georgia", fontface = "bold", vjust=0.5)
+
+timeline_plot
+
+```
+
+## Methods (Overview)
+After selecting and visualizing the most important dates for the Black Lives Matter protest, we used Python to create a web scrapper to scrape all the tweets from those days and download them onto our computer. The specific scrapper we used for this step is called ```{r}snscrape```. It was only able to extract the location from the Twitter User's bio, as they had manually input it. Getting the coordinates from where the tweet was sent would involve paying money to use Twitter's expensive API. For this reason, we had to do extensive data cleaning. Additionally, though we have done our best to ensure the accuracy of the data, one potential weakness of this dataset is that it is vulnerable to people who are joking or lying or inaccurately representing their location online. 
+
+To clean our data, we both used manual cleaning and Python. The manual cleaning was to augment and verify the Python scripts we used to clean the data. The Python scripts themselves can be found in this repo as well. To manually clean the data, we looked at each spreadsheet to eliminate false, fake, or otherwise inappropriate entries. This was to prepare the data for the geocoding codes to pull the lat and long values from cities and states. After that Python script was run, we did a final manual cleaning to ensure the lat/long values were correctly lined up. 
+
+Next, we cleaned our data, imported it into R. In R, we reshaped our data and then used it to create Kernel Density Maps based on the lat/long coordinates of the Twitter User and Choropleth maps based on the number of tweets per state. 
+
+#### Data Preprocessing 
+Our data preprocessing was extensive. In the Python files included in this repo, there are codes for the multiple runs of cleaning that were required. In addition to using these Python scripts to eliminate false entries and format the other location entries into a format a geocoding program could understand, we had to manually go through all of the spreadsheets to verify the accuracy and success of the Python cleaning scripts. 
+
+#### Organizing Data Structures in R 
+#Choropleth Maps Data Processing (SM)
+For the Choropleth maps, we read in all our excel files and then reshaped the data so that a count field was calculated representing the number of tweets in each state. We also added a field to contain the hover text in our final, interactive choropleth state map. Finally, we joined all the tables together into one and changed the date field to a POSIXct object so it would be read correctly by Plotly, the mapping library we would be using to create our chloropleth maps. 
+
+```{r}
+#load libraries 
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(maps)
+library(mapdata)
+library(tmaptools)
+library(patchwork)
+library(ggtext)
+library(plotly)
+library(readr)
+library(lubridate)
+
+##reading the excels and shaping the data
+#blacklivesmatter
+blacklivesmatter_030821 <- read_excel("Data\\BLM\\blacklivesmatter_030821.xlsx")
+blacklivesmatter_030821_points <- blacklivesmatter_030821 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blacklivesmatter_032821 <- read_excel("Data\\BLM\\blacklivesmatter_032821.xlsx")
+blacklivesmatter_032821_points <- blacklivesmatter_032821 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blacklivesmatter_052620 <- read_excel("Data\\BLM\\blacklivesmatter_052620.xlsx")
+blacklivesmatter_052620_points <- blacklivesmatter_052620 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blacklivesmatter_052720 <- read_excel("Data\\BLM\\blacklivesmatter_052720.xlsx")
+blacklivesmatter_052720_points <- blacklivesmatter_052720 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blacklivesmatter_052920 <- read_excel("Data\\BLM\\blacklivesmatter_052920.xlsx")
+blacklivesmatter_052920_points <- blacklivesmatter_052920 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blacklivesmatter_053120 <- read_excel("Data\\BLM\\blacklivesmatter_053120.xlsx")
+blacklivesmatter_053120_points <- blacklivesmatter_053120 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+#blm
+blm_030821 <- read_excel("Data\\BLM\\blm_030821.xlsx")
+blm_030821_points <- blm_030821 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blm_032821 <- read_excel("Data\\BLM\\blm_032821.xlsx")
+blm_032821_points <- blm_032821 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blm_052620 <- read_excel("Data\\BLM\\blm_052620.xlsx")
+blm_052620_points <- blm_052620 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blm_052720 <- read_excel("Data\\BLM\\blm_052720.xlsx")
+blm_052720_points <- blm_052720 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blm_052820 <- read_excel("Data\\BLM\\blm_052820.xlsx")
+blm_052820_points <- blm_052820 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blm_052920 <- read_excel("Data\\BLM\\blm_052920.xlsx")
+blm_052920_points <- blm_052920 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+blm_053120 <- read_excel("Data\\BLM\\blm_053120.xlsx")
+blm_053120_points <- blm_053120 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+#icantbreath
+icantbreathe_032821 <- read_excel("Data\\BLM\\icantbreathe_032821.xlsx")
+icantbreathe_032821_points <- icantbreathe_032821 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+icantbreathe_052620 <- read_excel("Data\\BLM\\icantbreathe_052620.xlsx")
+icantbreathe_052620_points <- icantbreathe_052620 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+icantbreathe_052720 <- read_excel("Data\\BLM\\icantbreathe_052720.xlsx")
+icantbreathe_052720_points <- icantbreathe_052720 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+icantbreathe_052820 <- read_excel("Data\\BLM\\icantbreathe_052820.xlsx")
+icantbreathe_052820_points <- icantbreathe_052820 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+icantbreathe_052920 <- read_excel("Data\\BLM\\icantbreathe_052920.xlsx")
+icantbreathe_052920_points <- icantbreathe_052920 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+icantbreathe_053120 <- read_excel("Data\\BLM\\icantbreathe_053120.xlsx")
+icantbreathe_053120_points <- icantbreathe_053120 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+##joining the date
+#icantbreate
+icantbreathe_join <- icantbreathe_053120_points %>%
+  full_join(icantbreathe_052920_points, by.x=region, by.y=region) %>%
+  full_join(icantbreathe_052820_points, by.x=region, by.y=region) %>%
+  full_join(icantbreathe_052720_points, by.x=region, by.y=region) %>%
+  full_join(icantbreathe_052620_points, by.x=region, by.y=region) %>%
+  full_join(icantbreathe_032821_points, by.x=region, by.y=region) %>%
+  mutate(date_final = paste0(as.POSIXct(date_col)))
+
+#blacklivesmatter
+blacklivesmatter_join <- blacklivesmatter_052920_points %>%
+  full_join(blacklivesmatter_030821_points, by.x=region, by.y=region) %>%
+  full_join(blacklivesmatter_032821_points, by.x=region, by.y=region) %>%
+  full_join(blacklivesmatter_052620_points, by.x=region, by.y=region) %>%
+  full_join(blacklivesmatter_052720_points, by.x=region, by.y=region) %>%
+  full_join(blacklivesmatter_053120_points, by.x=region, by.y=region) %>%
+  mutate(date_final = paste0(as.POSIXct(date_col)))
+
+#blm
+blm_join <- blm_053120_points %>%
+  full_join(blm_052820_points, by.x=region, by.y=region) %>%
+  full_join(blm_052920_points, by.x=region, by.y=region) %>%
+  full_join(blm_052620_points, by.x=region, by.y=region) %>%
+  full_join(blm_030821_points, by.x=region, by.y=region) %>%
+  full_join(blm_032821_points, by.x=region, by.y=region) %>%
+  full_join(blm_052720_points, by.x=region, by.y=region) %>%
+  mutate(date_final = paste0(as.POSIXct(date_col)))
+
+```
+
+#### Density Data Processing Methods (VC)
+We read in the data, then subset to not include Alaska and Hawaii for aesthetic and spacing purposes in the ggplot2 multiplots we will be making later in this package. After eliminating Alaska and Hawaii, we created kernel density maps for each spreadsheet in ggplot. 
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(maps)
+library(mapdata)
+library(tmaptools)
+library(patchwork)
+library(ggtext)
+
+windowsFonts(Georgia = windowsFont("TT Georgia"))
+
+# Read #blacklivesmatter data
+blacklivesmatter_030821 <- read_excel("Data\\BLM\\blacklivesmatter_030821.xlsx")
+blacklivesmatter_032821 <- read_excel("Data\\BLM\\blacklivesmatter_032821.xlsx")
+blacklivesmatter_052620 <- read_excel("Data\\BLM\\blacklivesmatter_052620.xlsx")
+blacklivesmatter_052720 <- read_excel("Data\\BLM\\blacklivesmatter_052720.xlsx")
+blacklivesmatter_052920 <- read_excel("Data\\BLM\\blacklivesmatter_052920.xlsx")
+blacklivesmatter_053120 <- read_excel("Data\\BLM\\blacklivesmatter_053120.xlsx")
+
+# Read #blm data
+blm_030821 <- read_excel("Data\\BLM\\blm_030821.xlsx")
+blm_032821 <- read_excel("Data\\BLM\\blm_032821.xlsx")
+blm_052620 <- read_excel("Data\\BLM\\blm_052620.xlsx")
+blm_052720 <- read_excel("Data\\BLM\\blm_052720.xlsx")
+blm_052820 <- read_excel("Data\\BLM\\blm_052820.xlsx")
+blm_052920 <- read_excel("Data\\BLM\\blm_052920.xlsx")
+blm_053120 <- read_excel("Data\\BLM\\blm_053120.xlsx")
+
+# Read #icantbreathe data
+icantbreathe_032821 <- read_excel("Data\\BLM\\icantbreathe_032821.xlsx")
+icantbreathe_052620 <- read_excel("Data\\BLM\\icantbreathe_052620.xlsx")
+icantbreathe_052720 <- read_excel("Data\\BLM\\icantbreathe_052720.xlsx")
+icantbreathe_052820 <- read_excel("Data\\BLM\\icantbreathe_052820.xlsx")
+icantbreathe_052920 <- read_excel("Data\\BLM\\icantbreathe_052920.xlsx")
+icantbreathe_053120 <- read_excel("Data\\BLM\\icantbreathe_053120.xlsx")
+
+# Subset cities in the continental US only
+blacklivesmatter_030821_points <- subset(blacklivesmatter_030821, LAT != "" &
+                                        STATE != "HI" & STATE != "AK")
+blacklivesmatter_032821_points <- subset(blacklivesmatter_032821, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+blacklivesmatter_052620_points <- subset(blacklivesmatter_052620, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+blacklivesmatter_052720_points <- subset(blacklivesmatter_052720, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+blacklivesmatter_052920_points <- subset(blacklivesmatter_052920, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+blacklivesmatter_053120_points <- subset(blacklivesmatter_053120, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+
+# Subset cities in the continental US only
+blm_030821_points <- subset(blm_030821, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+blm_032821_points <- subset(blm_032821, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+blm_052620_points <- subset(blm_052620, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+blm_052720_points <- subset(blm_052720, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+blm_052820_points <- subset(blm_052820, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+blm_052920_points <- subset(blm_052920, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+blm_053120_points <- subset(blm_053120, LAT != "" & STATE != "HI" &
+                              STATE != "AK")
+# Subset cities in the continental US only
+icantbreathe_032821_points <- subset(icantbreathe_032821, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+icantbreathe_052620_points <- subset(icantbreathe_052620, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+icantbreathe_052720_points <- subset(icantbreathe_052720, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+icantbreathe_052820_points <- subset(icantbreathe_052820, LAT != "" &
+                                       STATE != "HI" & STATE != "AK")
+icantbreathe_052920_points <- subset(icantbreathe_052920, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+icantbreathe_053120_points <- subset(icantbreathe_053120, LAT != "" &
+                                           STATE != "HI" & STATE != "AK")
+
+# Define a variable for the state map
+state <- map_data("state")
+
+# Point density map for #blacklivesmatter
+# March 8th, 2021
+density_lives_030821 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blacklivesmatter_030821_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blacklivesmatter_030821_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# March 28th, 2021
+density_lives_032821 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blacklivesmatter_032821_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blacklivesmatter_032821_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 26th, 2020
+density_lives_052620 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blacklivesmatter_052620_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blacklivesmatter_052620_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 27th, 2020
+density_lives_052720 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blacklivesmatter_052720_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blacklivesmatter_052720_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 29th, 2020
+density_lives_052920 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blacklivesmatter_052920_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blacklivesmatter_052920_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 31st, 2020
+density_lives_053120 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blacklivesmatter_053120_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blacklivesmatter_053120_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# Point density map for #blm
+# March 8th, 2021
+density_blm_030821 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_030821_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_030821_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# March 28th, 2021
+density_blm_032821 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_032821_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_032821_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 26th, 2020
+density_blm_052620 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_052620_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_052620_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 27th, 2020
+density_blm_052720 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_052720_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_052720_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 28th, 2020
+density_blm_052820 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_052820_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_052820_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 29th, 2020
+density_blm_052920 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_052920_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_052920_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 31st, 2020
+density_blm_053120 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = blm_053120_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = blm_053120_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# Point density map for #icantbreathe
+# March 28th, 2021
+density_breathe_032821 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = icantbreathe_032821_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = icantbreathe_032821_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 26th, 2020
+density_breathe_052620 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = icantbreathe_052620_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = icantbreathe_052620_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 27th, 2020
+density_breathe_052720 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = icantbreathe_052720_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = icantbreathe_052720_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 28th, 2020
+density_breathe_052820 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = icantbreathe_052820_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = icantbreathe_052820_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 29th, 2020
+density_breathe_052920 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = icantbreathe_052920_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = icantbreathe_052920_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+# May 31st, 2020
+density_breathe_053120 <- ggplot(data = state, aes(x = long, y = lat,
+                                               group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = icantbreathe_053120_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = icantbreathe_053120_points,
+                        aes(x = LONG, y = LAT), alpha = 0.5,
+                        inherit.aes = FALSE, show.legend = FALSE)
+
+```
+
+#### Results 
+
+Our data resulted in six figures, consisting of 6-7 maps. The first three figures are Choropleth Maps done by State. Each Choropleth figure possess a slider bar on the bottom that users can manipulate to switch between years. Users can also press the play button on the bottom left in order to watch the spatial distribution of tweets through time. 
+
+The next three figures depict Kernel Density Maps. Each figure shows a Kernel Density Map for all six dates. There is a figure generated for each hashtag. 
+
+## Choropleth Maps (SM)
+
+Each code chunk will create a map where users can move through all available dates for a different hashtag. 
+
+#### #icantbreathe Choropleth Map (SM)
+```{r, fig.align='center'}
+
+##establishing consistent styling for maps
+fontStyle = list(
+  family = "TT Georgia",
+  size = 15,
+  color = "black"
+)
+
+label = list(
+  bgcolor = "#FFFFFF",
+  bordercolor = "transparent",
+  font = fontStyle
+)
+
+#icantbreathe hashtag map
+icantbreathe_map = plot_geo(icantbreathe_join, locationmode = 'USA-states') %>%
+  add_trace(locations = ~STATE,
+            z = ~value,
+            color = ~value,
+            colorscale="Hot",
+            zmin=0,
+            zmax=max(icantbreathe_join$value),
+            text = ~hover,
+            hoverinfo = 'text',
+            frame = ~date_final) %>%
+  layout(geo = list(scope = "usa"),
+         font = list(family = "TT Georgia")) %>%
+  style(hoverlabel = label)
+
+#displaying the map
+icantbreathe_map
+```
+
+
+#### #blm Choropleth Map (SM)
+```{r, fig.align='center'}
+blm_map = plot_geo(blm_join, locationmode = 'USA-states') %>%
+  add_trace(locations = ~STATE,
+            z = ~value,
+            color = ~value,
+            colorscale="Hot",
+            zmin=0,
+            zmax=max(blm_join$value),
+            text = ~hover,
+            hoverinfo = 'text',
+            frame = ~date_final) %>%
+  layout(geo = list(scope = "usa"),
+         font = list(family = "TT Georgia")) %>%
+  style(hoverlabel = label)
+
+#displaying the map
+blm_map
+
+```
+
+#### #blacklivesmatter Choropleth Map (SM)
+```{r, fig.align='center'}
+blacklivesmatter_map = plot_geo(blacklivesmatter_join, locationmode = 'USA-states') %>%
+  add_trace(locations = ~STATE,
+            z = ~value,
+            color = ~value,
+            colorscale="Hot",
+            zmin=0,
+            zmax=max(blacklivesmatter_join$value),
+            text = ~hover,
+            hoverinfo = 'text',
+            frame = ~date_final) %>%
+  layout(geo = list(scope = "usa"),
+         font = list(family = "TT Georgia")) %>%
+  style(hoverlabel = label)
+
+#displaying the map
+blacklivesmatter_map
+```
+
+
+## Density Maps (VC)
+
+Each code chunk will create a different multiplot map displaying the kernel density for each hashtag. The first code chunk will establish the annotation for all three of the multiplot maps. 
+
+```{r, fig.align='center'}
+
+## establishing the annotations for each figures 
+
+# Define the figure's annotation
+lives_legend <- plot_annotation(
+  caption = "(A) May 26th, 2020. (B) May 27th, 2020. (C) May 29th, 2020.
+  (D) May 31st, 2020. (E) March 8th, 2021. (F) March 28th, 2021.",
+  theme = theme(
+    plot.caption = element_textbox_simple(
+      size = 9,
+      box.colour = "black",
+      linetype = 1,
+      padding = unit(c(3, 3, 3, 3), "pt"),
+      r = unit(0, "pt")
+    )
+  )
+)
+
+# Define the figure's annotation
+blm_legend <- plot_annotation(
+  caption = "(A) May 26th, 2020. (B) May 27th, 2020. (C) May 28th, 2020.
+  (D) May 29th, 2020. (E) May 31st, 2020. (F) March 8th, 2021.
+  (G) March 28th, 2021.",
+  theme = theme(
+    plot.caption = element_textbox_simple(
+      size = 9,
+      box.colour = "black",
+      linetype = 1,
+      padding = unit(c(3, 3, 3, 3), "pt"),
+      r = unit(0, "pt")
+    )
+  )
+)
+
+# Define the figure's annotation
+breathe_legend <- plot_annotation(
+  caption = "(A) May 26th, 2020. (B) May 27th, 2020. (C) May 28th, 2020.
+  (D) May 29th, 2020. (E) May 31st, 2020. (F) March 28th, 2021",
+  theme = theme(
+    plot.caption = element_textbox_simple(
+      size = 9,
+      box.colour = "black",
+      linetype = 1,
+      padding = unit(c(3, 3, 3, 3), "pt"),
+      r = unit(0, "pt")
+    )
+  )
+)
+```
+
+#### #blacklivesmatter Density Map (VC)
+```{r, fig.align='center'}
+# Multiplot for #blacklivesmatter
+multiplot_lives <-
+  density_lives_052620 +
+  density_lives_052720 +
+  density_lives_052920 +
+  density_lives_053120 +
+  density_lives_030821 +
+  density_lives_032821 +
+  lives_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #blacklivesmatter",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+
+multiplot_lives
+
+```
+
+#### #icantbreathe Density Map (VC)
+```{r, fig.align='center'}
+# Multiplot for #icantbreathe
+multiplot_breathe <-
+  density_breathe_052620 +
+  density_breathe_052720 +
+  density_breathe_052820 +
+  density_breathe_052920 +
+  density_breathe_053120 +
+  density_breathe_032821 +
+  breathe_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #icantbreathe",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+
+multiplot_breathe
+
+```
+
+#### #blm Density Map (VC)
+```{r, fig.align='center'}
+# Multiplot for #blm
+multiplot_blm <-
+  density_blm_052620 +
+  density_blm_052720 +
+  density_blm_052820 +
+  density_blm_052920 +
+  density_blm_053120 +
+  density_blm_030821 +
+  density_blm_032821 +
+  blm_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #blm",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+
+multiplot_blm
+
+```
+
+
+## Discussion
+Looking at the choropleth maps, there is a lot of variance between days that data was gathered for the black lives matter related hashtags, meaning there are many points where the map looks entirely black. Perhaps not using the same legend for all maps would make a more effective comparison when comparing such disparate response rates. 
+
+The Midwestern states appear to be more consistent tweeters, standing out on days where there are fewer overall tweets. There appears to be significant variance across the country in states with high versus low Twitter activity. 
+
+Interestingly, in the density maps, similar to the election hashtags, there is a significant concentration of Twitter activity in the northeast, especially as opposed to populous areas like California. While California did show high density for a handful of maps across the three hashtags, it was far less so than the density of tweets on the East Coast or coming from East Coast states. Similarly, while the concentration in the north of the United States surprised me, it's important to vote that George Floyd's murder was in Minnesota, which could account for the weight of the entries from them and surrounding states. 
+
+

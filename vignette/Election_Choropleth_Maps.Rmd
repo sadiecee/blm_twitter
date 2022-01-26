@@ -1,0 +1,997 @@
+---
+title: "A Spatial Analysis of Twitter Activity About The Capitol Insurrection"
+author: "Sadie and Valeria"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Introduction (or Overview)
+There is no denying that 2020 was an eventful year. From the COVID-19 pandemic, to the revival of the Black Lives Matter (BLM) movement and the Presidential election between Joe Biden and Donald Trump, the people of the United States were consistently on edge. While the whole world was stuck at home, mis-information ran wild across the internet and conspiracy theories made their way into the mainstream. The violent rhetoric coming from the White House empowered far right individuals and groups to comit arguably the worst act of domestic terrorism since the country's inception in what we now know as the January 6th Capitol Insurrection. 
+
+Academics and journalists alike have studied and reported on the significant role that social media played in this context. However, little attention has been put toward the spatial dimension of the use of social media surrounding it. This project aims to close that gap by exploring the spatial distribution of hashtag use in Tweets made across the United States during the peak of the BLM movement in the summer of 2020. 
+
+The goal of this project was to understand the spatial dimensions of the virtual world. As technology and social media draw increasing power over global politics and social movements, understanding the spatial trends, origins and patterns that govern this digital landscape become more pressing. 
+
+While part of our project looked at the rise of powerful social movements online, this part of the project had another dimension: to understand the spatial patterns and origins of those who engaged or supported an attempt at a violent revolution in the Capitol. The gravity of the threat posed by the Capitol Insurrection is what was driving our analysis of this data. 
+
+Our primary purpose was to understand the spatial distribution of tweets in the United States using three of the most common hashtags related to the January 6th Capitol Insurrection (#stopthesteal, #voterfraud, #electionfraud) in key dates after the 2020 Presidential Election (November 3rd, 7th, 11th, 24th and 30th, December 14th, and January 6th). 
+
+To visualize the arrangement of our chosen dates, we created these timelines. The timeline shows the dates that we have selected and when they occurred relative to the other dates selected. 
+```{r, fig.align='center'}
+library(scales)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(knitr)
+library(timevis)
+
+#remotes::install_version("Rttf2pt1", version = "1.3.8")
+#install.packages("extrafonts")
+#font_import(path = "C:/Users/vchavez/AppData/Local/Microsoft/Windows/Fonts")
+#y
+
+windowsFonts(Georgia=windowsFont("TT Georgia"))
+
+Election_Timeline <- data.frame(
+  Year = c(rep(c(2020), times = 6), rep(c(2021), times =1)),
+  Months = c(11,11,11,11,11,12,1),
+  Days = c(3,7,11,24,30,14,6),
+  Milestones = c("11/03\nPresidential\nElection",
+                 "11/07\nAssociated Press\ncalls PA for Biden",
+                 "11/11\nOfficial announcement of\nGA's hand recount",
+                 "11/24\nMN, NV, PA certify\nelection results",
+                 "11/30\nAZ, WI certify\nelection results",
+                 "12/14\nElectoral College\nVote",
+                 "01/06\nCapitol\nInsurrection"),
+  Event_type = c("2020 Presidential Election",
+                 "Associated Press calls PA for Biden","Official announcement of Georgia's hand recount",
+                 "Minnesota, Nevada, and Pennsylvania certify election results",
+                 "Arizona and Wisconsin certify election results",
+                 "Electoral College Vote",
+                 "Capitol Insurrection"))
+
+Election_Timeline$date <- with(Election_Timeline, ymd(sprintf('%04d%02d%02d', Election_Timeline$Year, Election_Timeline$Months, Election_Timeline$Days)))
+# of note, the ymd() function transforms dates stored in character and numeric vectors to Date
+## we are using the code with(df, ymd(sprintf('%04d%02d%02d', year, mon, day))) to take those three columns and merge them into one that is recognized as a date in R
+
+Election_Timeline <- Election_Timeline[with(Election_Timeline, order(date)), ]
+# of note, an alternate code to arrange the df in ascending date order would have been:
+## Merkel <- Merkel %>% arrange(date)
+
+Event_type_levels <- c("2020 Presidential Election",
+                       "Associated Press calls PA for Biden","Official announcement of Georgia's hand recount",
+                       "Minnesota, Nevada, and Pennsylvania certify election results",
+                       "Arizona and Wisconsin certify election results",
+                       "Electoral College Vote",
+                       "Capitol Insurrection")
+
+
+Event_type_colors <- c("#EF6937", "#4AAA92", "#5B1A18", "#F6B443", "#006C00", "#041256", "#D24043")
+Election_Timeline$Event_type <- factor(Election_Timeline$Event_type, levels= Event_type_levels, ordered=TRUE)
+
+positions <- c(0.2, -0.2, 0.4, -0.4, 0.2, -0.2, 0.4)
+
+directions <- c(1, -1)
+
+line_pos <- data.frame(
+  "date"=unique(Election_Timeline$date),
+  "position"=rep(positions, length.out=length(unique(Election_Timeline$date))),
+  "direction"=rep(directions, length.out=length(unique(Election_Timeline$date))))
+
+Election_Timeline <- merge(x=Election_Timeline, y=line_pos, by="date", all = TRUE)
+
+month_buffer <- 1
+
+month_date_range <- seq(min(Election_Timeline$date) - months(month_buffer), max(Election_Timeline$date) + months(month_buffer), by='month')
+
+month_format <- format(month_date_range, '%b')
+month_df <- data.frame(month_date_range, month_format)
+
+#year_date_range <- seq(min(Election_Timeline$date) - months(month_buffer), max(Election_Timeline$date) + months(month_buffer), by='year')
+
+# We will only show the years for which we have a december to january transition.
+#year_date_range <- as.Date(
+#intersect(
+# ceiling_date(year_date_range, unit="year"),
+#floor_date(year_date_range, unit="year")),
+#origin = "2020-01-01")
+
+# We want the format to be in the four digit format for years.
+#year_format <- format(year_date_range, '%Y')
+#year_df <- data.frame(year_date_range, year_format)
+
+timeline_plot<-ggplot(Election_Timeline,aes(x=date,y= position, col=Event_type, label=Election_Timeline$Milestones))
+
+timeline_plot<-timeline_plot+labs(col="Milestones")
+
+timeline_plot<-timeline_plot+scale_color_manual(values=Event_type_colors, labels=Event_type_levels, drop = FALSE)
+
+timeline_plot<-timeline_plot+theme_classic()
+
+timeline_plot<-timeline_plot+geom_hline(yintercept=0,
+                                        color = "black", size=0.3)
+
+timeline_plot<-timeline_plot+geom_segment(data = Election_Timeline, aes(y = Election_Timeline$position, yend = 0, xend = Election_Timeline$date), color='black', size=0.2)
+
+timeline_plot<-timeline_plot+geom_point(data = Election_Timeline, aes(y = Election_Timeline$position), size=2)
+
+timeline_plot<-timeline_plot+theme(axis.line.y=element_blank(),
+                                   axis.text.y=element_blank(),
+                                   axis.title.x=element_blank(),
+                                   axis.title.y=element_blank(),
+                                   axis.ticks.y=element_blank(),
+                                   axis.text.x =element_blank(),
+                                   axis.ticks.x =element_blank(),
+                                   axis.line.x =element_blank(),
+                                   legend.position = "",
+                                   text = element_text(family = "Georgia")
+)
+
+timeline_plot <- timeline_plot + geom_text(data = month_df, aes(x = month_date_range, y = -0.09, label = month_format, family = "Georgia", fontface = "bold"), size = 3, vjust = 0.5, color = "black", angle=90)
+
+#timeline_plot<-timeline_plot+geom_text(data=year_df, aes(x=year_date_range,y=-0.25,label=year_format, fontface="bold"),size=3.5, color='black')
+
+text_offset <- 0.07
+
+absolute_value <- (abs(Election_Timeline$position))
+text_position <- absolute_value + text_offset
+
+Election_Timeline$text_position <- text_position * Election_Timeline$direction
+
+timeline_plot<-timeline_plot+geom_text(aes(y=Election_Timeline$text_position,label = Election_Timeline$Milestones),size=3, family="Georgia", fontface = "bold", vjust=0.5)
+
+timeline_plot
+```
+
+#### Methods (or Overview)
+
+To clean our data, we both used manual cleaning and Python. The manual cleaning was to augment and verify the Python scripts we used to clean the data. The Python scripts themselves can be found in this repo as well. To manually clean the data, we looked at each spreadsheet to eliminate false, fake, or otherwise inappropriate entries. This was to prepare the data for the geocoding codes to pull the lat and long values from cities and states. After that Python script was run, we did a final manual cleaning to ensure the lat/long values were correctly lined up. 
+
+Next, we cleaned our data, imported it into R. In R, we reshaped our data and then used it to create Kernel Density Maps based on the lat/long coordinates of the Twitter User and Choropleth maps based on the number of tweets per state. 
+
+## Data Preprocessing 
+Our data preprocessing was extensive. In the Python files included in this repo, there are codes for the multiple runs of cleaning that were required. In addition to using these Python scripts to eliminate false entries and format the other location entries into a format a geocoding program could understand, we had to manually go through all of the spreadsheets to verify the accuracy and success of the Python cleaning scripts. 
+
+## Organizing Data Structures in R 
+#Choropleth Maps Data Processing (SM)
+For the Choropleth maps, we read in all our excel files and then reshaped the data so that a count field was calculated representing the number of tweets in each state. We also added a field to contain the hover text in our final, interactive choropleth state map. Finally, we joined all the tables together into one and changed the date field to a POSIXct object so it would be read correctly by Plotly, the mapping library we would be using to create our chloropleth maps. 
+```{r include=FALSE}
+#load libraries 
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(maps)
+library(mapdata)
+library(tmaptools)
+library(patchwork)
+library(ggtext)
+library(plotly)
+library(readr)
+library(lubridate)
+
+##reading the excels and shaping the data
+stopthesteal_121420 <- read_excel("Data\\FASC\\stopthesteal_121420.xlsx")
+stopthesteal_121420_points <- stopthesteal_121420 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+stopthesteal_010621 <- read_excel("Data\\FASC\\stopthesteal_010621.xlsx")
+stopthesteal_010621_points <- stopthesteal_010621 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+stopthesteal_110320 <- read_excel("Data\\FASC\\stopthesteal_110320.xlsx")
+stopthesteal_110320_points <- stopthesteal_110320 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+stopthesteal_110720 <- read_excel("Data\\FASC\\stopthesteal_110720.xlsx")
+stopthesteal_110720_points <- stopthesteal_110720 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+stopthesteal_111120 <- read_excel("Data\\FASC\\stopthesteal_111120.xlsx")
+stopthesteal_111120_points <- stopthesteal_111120 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+stopthesteal_112420 <- read_excel("Data\\FASC\\stopthesteal_112420.xlsx")
+stopthesteal_112420_points <- stopthesteal_112420 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+stopthesteal_113020 <- read_excel("Data\\FASC\\stopthesteal_113020.xlsx")
+stopthesteal_113020_points <- stopthesteal_113020 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+#voterfraud
+voterfraud_010621 <- read_excel("Data\\FASC\\voterfraud_010621.xlsx")
+voterfraud_010621_points <- voterfraud_010621 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+voterfraud_110320 <- read_excel("Data\\FASC\\voterfraud_110321.xlsx")
+voterfraud_110320_points <- voterfraud_110320 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+voterfraud_110720 <- read_excel("Data\\FASC\\voterfraud_110721.xlsx")
+voterfraud_110720_points <- voterfraud_110720 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+voterfraud_111120 <- read_excel("Data\\FASC\\voterfraud_111121.xlsx")
+voterfraud_111120_points <- voterfraud_111120 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+voterfraud_112420 <- read_excel("Data\\FASC\\voterfraud_112420.xlsx")
+voterfraud_112420_points <- voterfraud_112420 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+voterfraud_113020 <- read_excel("Data\\FASC\\voterfraud_113020.xlsx")
+voterfraud_113020_points <- voterfraud_113020 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+voterfraud_121420 <- read_excel("Data\\FASC\\voterfraud_121420.xlsx")
+voterfraud_121420_points <- voterfraud_121420 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+#election fraud
+electionfraud_010621 <- read_excel("Data\\FASC\\electionfraud_010621.xlsx")
+electionfraud_010621_points <- electionfraud_010621 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+electionfraud_110320 <- read_excel("Data\\FASC\\electionfraud_110320.xlsx")
+electionfraud_110320_points <- electionfraud_110320 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+electionfraud_110720 <- read_excel("Data\\FASC\\electionfraud_110720.xlsx")
+electionfraud_110720_points <- electionfraud_110720 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+electionfraud_111120 <- read_excel("Data\\FASC\\electionfraud_111120.xlsx")
+electionfraud_111120_points <- electionfraud_111120 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+electionfraud_112420 <- read_excel("Data\\FASC\\electionfraud_112420.xlsx")
+electionfraud_112420_points <- electionfraud_112420 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+electionfraud_113020 <- read_excel("Data\\FASC\\electionfraud_113020.xlsx")
+electionfraud_113020_points <- electionfraud_113020 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+electionfraud_121420 <- read_excel("Data\\FASC\\electionfraud_121420.xlsx")
+electionfraud_121420_points <- electionfraud_121420 %>%
+  mutate(region = (state.name[match(STATE,state.abb)]), date = as.Date(DATE)) %>%
+  add_count(STATE) %>%
+  mutate(value = n, date_col = floor_date(date, "day")) %>%
+  mutate(hover = paste0(region, "\n", value , " tweet(s)")) %>%
+  distinct(region, value, hover, date_col, STATE) %>%
+  data.frame()
+
+
+##joining the date
+#stopthesteal
+stopthesteal_join <- stopthesteal_113020_points %>%
+  full_join(stopthesteal_112420_points, by.x=region, by.y=region) %>%
+  full_join(stopthesteal_111120_points, by.x=region, by.y=region) %>%
+  full_join(stopthesteal_110720_points, by.x=region, by.y=region) %>%
+  full_join(stopthesteal_110320_points, by.x=region, by.y=region) %>%
+  full_join(stopthesteal_010621_points, by.x=region, by.y=region) %>%
+  full_join(stopthesteal_121420_points, by.x=region, by.y=region) %>%
+  mutate(date_final = paste0(as.POSIXct(date_col)))
+
+#voterfraud
+voterfraud_join <- voterfraud_113020_points %>%
+  full_join(voterfraud_112420_points, by.x=region, by.y=region) %>%
+  full_join(voterfraud_111120_points, by.x=region, by.y=region) %>%
+  full_join(voterfraud_110720_points, by.x=region, by.y=region) %>%
+  full_join(voterfraud_110320_points, by.x=region, by.y=region) %>%
+  full_join(voterfraud_010621_points, by.x=region, by.y=region) %>%
+  full_join(voterfraud_121420_points, by.x=region, by.y=region) %>%
+  mutate(date_final = paste0(as.POSIXct(date_col)))
+
+#electionfraud
+electionfraud_join <- electionfraud_113020_points %>%
+  full_join(electionfraud_112420_points, by.x=region, by.y=region) %>%
+  full_join(electionfraud_111120_points, by.x=region, by.y=region) %>%
+  full_join(electionfraud_110720_points, by.x=region, by.y=region) %>%
+  full_join(electionfraud_110320_points, by.x=region, by.y=region) %>%
+  full_join(electionfraud_010621_points, by.x=region, by.y=region) %>%
+  full_join(electionfraud_121420_points, by.x=region, by.y=region) %>%
+  mutate(date_final = paste0(as.POSIXct(date_col)))
+
+```
+
+# Density Map Processing Methods (VC)
+We read in the data, then subset to not include Alaska and Hawaii for aesthetic and spacing purposes in the ggplot2 multiplots we will be making later in this package. After eliminating Alaska and Hawaii, we created kernel density maps for each spreadsheet in ggplot. 
+
+```{r, fig.align='center'}
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(maps)
+library(mapdata)
+library(tmaptools)
+library(patchwork)
+library(ggtext)
+library(dplyr)
+
+windowsFonts(Georgia = windowsFont("TT Georgia"))
+
+# Read #electionfraud data
+electionfraud_010621 <- read_excel("Data\\FASC\\electionfraud_010621.xlsx")
+electionfraud_110320 <- read_excel("Data\\FASC\\electionfraud_110320.xlsx")
+electionfraud_110720 <- read_excel("Data\\FASC\\electionfraud_110720.xlsx")
+electionfraud_111120 <- read_excel("Data\\FASC\\electionfraud_111120.xlsx")
+electionfraud_112420 <- read_excel("Data\\FASC\\electionfraud_112420.xlsx")
+electionfraud_113020 <- read_excel("Data\\FASC\\electionfraud_113020.xlsx")
+electionfraud_121420 <- read_excel("Data\\FASC\\electionfraud_121420.xlsx")
+
+# Read #stopthesteal data
+stopthesteal_010621 <- read_excel("Data\\FASC\\stopthesteal_010621.xlsx")
+stopthesteal_110320 <- read_excel("Data\\FASC\\stopthesteal_110320.xlsx")
+stopthesteal_110720 <- read_excel("Data\\FASC\\stopthesteal_110720.xlsx")
+stopthesteal_111120 <- read_excel("Data\\FASC\\stopthesteal_111120.xlsx")
+stopthesteal_112420 <- read_excel("Data\\FASC\\stopthesteal_112420.xlsx")
+stopthesteal_113020 <- read_excel("Data\\FASC\\stopthesteal_113020.xlsx")
+stopthesteal_121420 <- read_excel("Data\\FASC\\stopthesteal_121420.xlsx")
+
+# Read #voterfraud data
+voterfraud_010621 <- read_excel("Data\\FASC\\voterfraud_010621.xlsx")
+voterfraud_110320 <- read_excel("Data\\FASC\\voterfraud_110321.xlsx")
+voterfraud_110720 <- read_excel("Data\\FASC\\voterfraud_110721.xlsx")
+voterfraud_111120 <- read_excel("Data\\FASC\\voterfraud_111121.xlsx")
+voterfraud_112420 <- read_excel("Data\\FASC\\voterfraud_112420.xlsx")
+voterfraud_113020 <- read_excel("Data\\FASC\\voterfraud_113020.xlsx")
+voterfraud_121420 <- read_excel("Data\\FASC\\voterfraud_121420.xlsx")
+
+# Subset cities in the continental US only
+electionfraud_010621_points <- subset(electionfraud_010621, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+electionfraud_110320_points <- subset(electionfraud_110320, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+electionfraud_110720_points <- subset(electionfraud_110720, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+electionfraud_111120_points <- subset(electionfraud_111120, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+electionfraud_112420_points <- subset(electionfraud_112420, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+electionfraud_113020_points <- subset(electionfraud_113020, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+electionfraud_121420_points <- subset(electionfraud_121420, LAT != "" &
+                                      STATE != "HI" & STATE != "AK")
+
+# Subset cities in the continental US only
+stopthesteal_010621_points <- subset(stopthesteal_010621, LAT != "" &
+                                     STATE != "HI" & STATE != "AK")
+stopthesteal_110320_points <- subset(stopthesteal_110320, LAT != "" &
+                                     STATE != "HI" & STATE != "AK")
+stopthesteal_110720_points <- subset(stopthesteal_110720, LAT != "" &
+                                     STATE != "HI" & STATE != "AK")
+stopthesteal_111120_points <- subset(stopthesteal_111120, LAT != "" &
+                                     STATE != "HI" & STATE != "AK")
+stopthesteal_112420_points <- subset(stopthesteal_112420, LAT != "" &
+                                     STATE != "HI" & STATE != "AK")
+stopthesteal_113020_points <- subset(stopthesteal_113020, LAT != "" &
+                                     STATE != "HI" & STATE != "AK")
+
+stopthesteal_121420 <- read_excel("Data\\FASC\\stopthesteal_121420.xlsx")
+
+# Subset cities in the continental US only
+voterfraud_010621_points <- subset(voterfraud_010621, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+voterfraud_110320_points <- subset(voterfraud_110320, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+voterfraud_110720_points <- subset(voterfraud_110720, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+voterfraud_111120_points <- subset(voterfraud_111120, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+voterfraud_112420_points <- subset(voterfraud_112420, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+voterfraud_113020_points <- subset(voterfraud_113020, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+voterfraud_121420_points <- subset(voterfraud_121420, LAT != "" &
+                                   STATE != "HI" & STATE != "AK")
+
+# Define a variable for the state map
+state <- map_data("state")
+
+# Point density map for #electionfraud
+# January 6th, 2021
+density_election_010621 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_010621_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_010621_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 3rd, 2020
+density_election_110320 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_110320_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_110320_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 7th, 2020
+density_election_110720 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_110720_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_110720_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 11th, 2020
+density_election_111120 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_111120_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_111120_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 24th, 2020
+density_election_112420 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_112420_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_112420_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 30th, 2020
+density_election_113020 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_113020_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_113020_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# December 14th, 2020
+density_election_121420 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = electionfraud_121420_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = electionfraud_121420_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# Point density map for #stopthesteal
+# January 6th, 2021
+density_steal_010621 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_010621_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_010621_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 3rd, 2020
+density_steal_110320 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_110320_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_110320_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 7th, 2020
+density_steal_110720 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_110720_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_110720_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 11th, 2020
+density_steal_111120 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_111120_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_111120_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 24th, 2020
+density_steal_112420 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_112420_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_112420_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 30th, 2020
+density_steal_113020 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_113020_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_113020_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# December 14th, 2020
+density_steal_121420 <- ggplot(data = state, aes(x = long, y = lat,
+                                                    group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = stopthesteal_121420_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = stopthesteal_121420_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# Point density map for #voterfraud
+# January 6th, 2021
+density_voter_010621 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_010621_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_010621_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 3rd, 2020
+density_voter_110320 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_110320_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_110320_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 7th, 2020
+density_voter_110720 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_110720_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_110720_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 11th, 2020
+density_voter_111120 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_111120_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_111120_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 24th, 2020
+density_voter_112420 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_112420_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_112420_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# November 30th, 2020
+density_voter_113020 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_113020_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_113020_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+# December 14th, 2020
+density_voter_121420 <- ggplot(data = state, aes(x = long, y = lat,
+                                                 group = group)) +
+  geom_polygon(color = "black", fill = "white") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  geom_point(data = voterfraud_121420_points, aes(x = LONG, y = LAT),
+             size = 2, shape = 20, colour = "darkred", inherit.aes = FALSE) +
+  geom_density2d_filled(data = voterfraud_121420_points, aes(x = LONG, y = LAT),
+                        alpha = 0.5, inherit.aes = FALSE, show.legend = FALSE)
+
+```
+
+#### Results 
+
+Our data resulted in six figures, consisting of 6-7 maps. The first three figures are Choropleth Maps done by State. Each Choropleth figure possess a slider bar on the bottom that users can manipulate to switch between years. Users can also press the play button on the bottom left in order to watch the spatial distribution of tweets through time. 
+
+The next three figures depict Kernel Density Maps. Each figure shows a Kernel Density Map for all six dates. There is a figure generated for each hashtag. 
+
+## Choropleth Maps (SM)
+
+```{r include=FALSE}
+
+##establishing consistent styling for maps
+fontStyle = list(
+  family = "TT Georgia",
+  size = 15,
+  color = "black"
+)
+
+label = list(
+  bgcolor = "#FFFFFF",
+  bordercolor = "transparent",
+  font = fontStyle
+)
+```
+
+#### #stopthesteal Choropleth Map (SM)
+```{R}
+#stopthesteal hashtag map
+stopthesteal_map = plot_geo(stopthesteal_join, locationmode = 'USA-states') %>%
+  add_trace(locations = ~STATE,
+            z = ~value,
+            color = ~value,
+            colorscale="Hot",
+            zmin=0,
+            zmax=max(electionfraud_join$value),
+            text = ~hover,
+            hoverinfo = 'text',
+            frame = ~date_final) %>%
+  layout(geo = list(scope = "usa"),
+         font = list(family = "TT Georgia")) %>%
+  style(hoverlabel = label)
+
+stopthesteal_map
+
+```
+
+
+#### #voterfraud Choropleth Map (SM)
+```{r}
+#voterfraud
+voterfraud_map = plot_geo(voterfraud_join, locationmode = 'USA-states') %>%
+  add_trace(locations = ~STATE,
+            z = ~value,
+            color = ~value,
+            colorscale="Hot",
+            zmin=0,
+            zmax=max(electionfraud_join$value),
+            text = ~hover,
+            hoverinfo = 'text',
+            frame = ~date_final) %>%
+  layout(geo = list(scope = "usa"),
+         font = list(family = "TT Georgia")) %>%
+  style(hoverlabel = label)
+
+voterfraud_map
+
+```
+
+#### #electionfraud Choropleth Map (SM)
+```{r}
+#electionfraud
+electionfraud_map = plot_geo(electionfraud_join, locationmode = 'USA-states') %>%
+  add_trace(locations = ~STATE,
+            z = ~value,
+            color = ~value,
+            colorscale="Hot",
+            zmin=0,
+            zmax=max(electionfraud_join$value),
+            text = ~hover,
+            hoverinfo = 'text',
+            frame = ~date_final) %>%
+  layout(geo = list(scope = "usa"),
+         font = list(family = "TT Georgia")) %>%
+  style(hoverlabel = label)
+
+electionfraud_map
+```
+
+## Density Maps (VC)
+
+```{r}
+## estbalishing annotations for the figures to be created below 
+# Define the figure's annotation
+fig_legend <- plot_annotation(
+  caption = "(A) November 3rd, 2020. (B) November 7th, 2020. (C) November 11th, 2020.
+  (D) November 24th, 2020. (E) November 30th, 2020. (F) December 14th, 2020.
+  (G) January 6th, 2021",
+  theme = theme(
+    plot.caption = element_textbox_simple(
+      size = 9,
+      box.colour = "black",
+      linetype = 1,
+      padding = unit(c(3, 3, 3, 3), "pt"),
+      r = unit(0, "pt")
+    )
+  )
+)
+
+# Multiplot for #electionfraud
+multiplot_election <-
+  density_election_110320 +
+  density_election_110720 +
+  density_election_111120 +
+  density_election_112420 +
+  density_election_113020 +
+  density_election_121420 +
+  density_election_010621 +
+  fig_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #electionfraud",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+```
+
+#### #stopthesteal Density Map (VC)
+```{r, fig.align='center'}
+# Multiplot for #stopthesteal
+multiplot_steal <-
+  density_election_110320 +
+  density_election_110720 +
+  density_election_111120 +
+  density_election_112420 +
+  density_election_113020 +
+  density_election_121420 +
+  density_election_010621 +
+  fig_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #stopthesteal",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+
+```
+
+#### #voterfraud Density Map (VC)
+```{r, fig.align='center'}
+# Multiplot for #voterfraud
+multiplot_voter <-
+  density_election_110320 +
+  density_election_110720 +
+  density_election_111120 +
+  density_election_112420 +
+  density_election_113020 +
+  density_election_121420 +
+  density_election_010621 +
+  fig_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #voterfraud",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+```
+
+#### #electionfraud Density Map (VC)
+```{r, fig.align='center'}
+# Multiplot for #electionfraud
+multiplot_election <-
+  density_election_110320 +
+  density_election_110720 +
+  density_election_111120 +
+  density_election_112420 +
+  density_election_113020 +
+  density_election_121420 +
+  density_election_010621 +
+  fig_legend +
+  plot_layout(ncol = 3) +
+  plot_annotation(title = "Spatial Distribution of Tweets that included #electionfraud",
+                  tag_levels = "A") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.tag = element_text(size = 10, hjust = 0, vjust = -1),
+        plot.tag.position = c(0, 0.85),
+        text = element_text("Georgia"))
+
+```
+
+#### Discussion
+The number of tweets for #stopthesteal shifted across the six time points, interestingly going from CA to TX as the the state with the greatest weight of tweets. 
+The second and last date caught the most overall tweets. 
+
+For #voterfraud, the second and third day had the highest number of tweets, which makes sense as this hashtag seems very specific to not just geography but time. 
+There were slight shifts in the intensity of the tweets but unlike the #stopthesteal hashtag, spatial concentration of the tweets appeared to have a more stable pattern. 
+
+On the other hand, #electionfraud sees the most variance, with a greater concentration of Florida based tweets. This suggests that certain hashtags might be preferred or more prominent in certain parts of the country. Additionally, Florida was also having a very close election race at the time, which might have explained their prominence on the second, third and last day. 
+
+In terms of the density maps, across all three hashtags, the weight of the tweets was concentrated heavily in the northeast. This makes sense given their geographic proximity to the Capitol Building itself, however it is interesting that mid-western states saw far high Tweet density than more populated states like California or Texas. 
+
+
